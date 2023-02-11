@@ -1,3 +1,15 @@
+'''
+***Version 2***
+Project : ICE_Updater
+Developing Period : Feb. 06, 2023 ~ 
+Author : Ji-Hun Noh
+Date of last update: Jan. 30, 2023
+Update List :
+    - v1.0 : Jan. 30, 2023
+        -- Crawl announcement & article in college page, send that information to telegram
+    - v2.0 : 
+        -- Filtering mechanism change
+'''
 import http.client
 import json
 import requests
@@ -5,31 +17,17 @@ from bs4 import BeautifulSoup
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from typing import Callable
+import os
 
-'''
-***Version 1***
-Project : ICE_Updater
-Developing Period : Jan. 25, 2023 ~ Jan. 30, 2023
-Author : Ji-Hun Noh
-Date of last update: Jan. 30, 2023
-Update List :
-    - v1.0 : Jan. 30, 2023
-        -- Crawl announcement & article in college page, send that information to telegram
-'''
-'''
-https://ice.yu.ac.kr/ice/board/notice.do-구조
-b-top-box에 공지사항
-
-'''
 class sendMSG:
     def __init__(self) -> None:
         self.TELEGRAM_API_HOST='api.telegram.org'
-        self.TOKEN='Private_TOKEN'
+        self.TOKEN=os.environ['TOKEN']
         self.connection = http.client.HTTPSConnection(self.TELEGRAM_API_HOST)
         self.url=f'/bot{self.TOKEN}/sendMessage'
         self.headers={'content-type': 'application/json'}
     
-    def set_param(self, id = 'Chat_id', text='default'):
+    def set_param(self, id = os.environ['chat_id'], text='default'):
         param={
             'chat_id': id,
             'text' : text
@@ -46,6 +44,11 @@ class sendMSG:
     def close(self):
         self.connection.close()
 
+'''
+https://ice.yu.ac.kr/ice/board/notice.do-구조
+b-top-box에 공지사항
+'''
+
 class dataProcess(sendMSG):
     def __init__(self) -> None:
         super().__init__()
@@ -53,9 +56,9 @@ class dataProcess(sendMSG):
             'https://spreadsheets.google.com/feeds',
             'https://www.googleapis.com/auth/drive',
         }
-        self.json_key='json_key'
-        self.announcement_sheet_url='Sheet_url_1'
-        self.article_sheet_url='Sheet_url_2'
+        self.json_key=os.environ['json_key_name']
+        self.announcement_sheet_url=os.environ['announcement_sheet_url']
+        self.article_sheet_url=os.environ['article_sheet_url']
         self.credentials=ServiceAccountCredentials.from_json_keyfile_name(self.json_key, self.scope)
         self.gc=gspread.authorize(self.credentials)
         self.parsing_list_announcement=[]#0:date, 1:title
@@ -75,7 +78,7 @@ class dataProcess(sendMSG):
         self.sheet=sheet
 
     def parser(self) -> None:
-        url='https://ice.yu.ac.kr/ice/board/notice.do'
+        url='https://ice.yu.ac.kr/ice/board/notice.do'#환경변수
         data=requests.get(url)
         bs=BeautifulSoup(data.text,'html.parser')
 
@@ -112,31 +115,83 @@ class dataProcess(sendMSG):
         11: both new data founded
         '''
         renew_data_count=0
+        announcement_data_pos=0
+        article_data_pos=0
 
-        last_data=self.sheet.row_values(1)#announcement
-        if last_data[0] == self.parsing_list_announcement[0][0] and last_data[1] == self.parsing_list_announcement[0][1]:
+        announcement_last_data=self.sheet.row_values(1)#announcement
+        if announcement_last_data[0] == self.parsing_list_announcement[0][0] and announcement_last_data[1] == self.parsing_list_announcement[0][1]:
             print('Crawl data is same to Saved data : announcement')
             renew_data_count+=0
 
         else:
             print('New data founded : announcement')
             renew_data_count+=10
+            announcement_data_pos=self.data_pos_check(data_list=self.parsing_list_announcement, last_data=announcement_last_data)
 
         self.set_sheet(self.article_sheet_url)
-        last_data=self.sheet.row_values(1)#article
-        if last_data[0] == self.parsing_list_article[0][0] and last_data[1] == self.parsing_list_article[0][1]:
+        article_last_data=self.sheet.row_values(1)#article
+        if article_last_data[0] == self.parsing_list_article[0][0] and article_last_data[1] == self.parsing_list_article[0][1]:
             print('Crawl data is same to Saved data : article')
             renew_data_count+=0
 
         else:
             print('New data founded : article')
             renew_data_count+=1
+            article_data_pos = self.data_pos_check(data_list=self.parsing_list_article, last_data=article_last_data)
         
         self.set_sheet(self.announcement_sheet_url)
 
-        return renew_data_count
+        return renew_data_count, announcement_data_pos, article_data_pos, announcement_last_data, article_last_data
 
-    def data_verification(self, renew_data_count:int) -> str:
+    def data_verification(self, renew_data_count:int, announcement_pos:int, article_pos:int, announcement_last_data:list, article_last_data:list) -> str:
+        if renew_data_count == 10:
+            if self.data_check_sum(self.parsing_list_announcement, announcement_last_data, announcement_pos):
+                text_announcement=[]
+                for i in range(announcement_pos, -1, -1):
+                    self.data_saving(self.parsing_list_announcement[i])
+                    text_announcement_temp=self.set_send_text(type='Announcement', data_list=self.parsing_list_announcement[i])
+                    text_announcement.append(text_announcement_temp)
+                text_article=None
+            else:
+                print('Data checksum failed')
+
+            return text_announcement, text_article
+        
+        elif renew_data_count == 1:
+            if self.data_check_sum(self.parsing_list_announcement, announcement_last_data, announcement_pos):
+                text_article=[]
+                self.set_sheet(self.article_sheet_url)
+                for i in range(article_pos, -1, -1):
+                    self.data_saving(self.parsing_list_article[i])
+                    text_article_temp=self.set_send_text(type='Article', data_list=self.parsing_list_article[i])
+                    text_article.append(text_article_temp)
+                text_announcement=None
+                self.set_sheet(self.announcement_sheet_url)
+            else:
+                print('Data checksum failed')
+
+            return text_announcement, text_article
+        
+        elif renew_data_count == 11:
+            if self.data_check_sum(self.parsing_list_announcement, announcement_last_data, announcement_pos):
+                text_announcement=[]; text_article=[]
+                for i in range(announcement_pos, -1, -1):
+                    self.data_saving(self.parsing_list_announcement[i])
+                    text_announcement_temp=self.set_send_text(type='Announcement', data_list=self.parsing_list_announcement[i])
+                    text_announcement.append(text_announcement_temp)
+                self.set_sheet(self.article_sheet_url)
+                for i in range(article_pos, -1, -1):
+                    self.data_saving(self.parsing_list_article[i])
+                    text_article_temp=self.set_send_text(type='Article', data_list=self.parsing_list_article[i])
+                    text_article.append(text_article_temp)
+                self.set_sheet(self.announcement_sheet_url)
+            
+            else:
+                print('Data checksum failed')
+
+            return text_announcement, text_article
+
+        '''
         if renew_data_count == 10:
             self.data_saving(self.parsing_list_announcement[0])
             text_announcement=self.set_send_text(type='Announcement', data_list=self.parsing_list_announcement[0])
@@ -159,8 +214,16 @@ class dataProcess(sendMSG):
             text_article=self.set_send_text(type='Article', data_list=self.parsing_list_article[0])
             self.set_sheet(self.announcement_sheet_url)
             return text_announcement, text_article
+        '''
+        
+    def data_pos_check(self, data_list:list, last_data:list):
+        return data_list.index(last_data)
 
-    def msg_send_process(self, text_announcement:str, text_article:str):
+    def data_check_sum(self, data_list:list, last_data:list, data_pos:int):
+        print()
+        #return 0 or 1
+
+    def msg_send_process(self, text_announcement:list, text_article:list):#리스트 형식 읽어서 msg sending 할 수 있게 modify해야함
         if text_announcement != None and text_article != None:
             param_anno=self.set_param(text=text_announcement)
             param_arti=self.set_param(text=text_article)
@@ -174,7 +237,6 @@ class dataProcess(sendMSG):
         elif text_announcement == None and text_article != None:
             param_arti=self.set_param(text=text_article)
             self.send_msg(param_arti)
-
 
     def data_saving(self, data:list) -> None:
         self.sheet.insert_row(data)
@@ -192,12 +254,14 @@ Url : {data_list[2]}
 
     def routine(self):
         self.parser()
-        count=self.data_filtering()
+        count, announcement_pos, article_pos, announcement_last_data, article_last_data=self.data_filtering()
         if count != 0:
-            text_announcement, text_article=self.data_verification(count)
+            text_announcement, text_article=self.data_verification(count, announcement_pos, article_pos, announcement_last_data, article_last_data)
             self.msg_send_process(text_announcement, text_article)
             self.close()
         else:
             print('New data is not founded')
-dp=dataProcess()
-dp.routine()
+
+def main(event, context):
+    dp=dataProcess()
+    dp.routine()
