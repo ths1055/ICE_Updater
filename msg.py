@@ -10,7 +10,7 @@ class sendMSG:
         self.url=f'/bot{self.TOKEN}/sendMessage'
         self.headers={'content-type': 'application/json'}
     
-    def set_param(self, id = os.environ['CHAT_ID'], text='default'):
+    def set_param(self, id = '5543864766', text='default'):
         param={
             'chat_id': id,
             'text' : text

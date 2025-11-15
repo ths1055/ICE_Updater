@@ -38,8 +38,8 @@ class DataProcess:
             return cut_data
         
     async def select_data(self, parse_data: list, sheet_data: list) -> list:
+        #print(parse_data, sheet_data)
         NUM_refresh, duplicate_TF = self._compare_data(parse_data, sheet_data)
-
         cut_data = self._cut_data(parse_data, NUM_refresh, duplicate_TF)
 
         return cut_data, duplicate_TF

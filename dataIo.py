@@ -6,7 +6,7 @@ import asyncio
 
 class dataIo:
     def __init__(self):
-        self.agcm = gspread_asyncio.AsyncioGspreadClientManager(self.get_creds())
+        self.agcm = gspread_asyncio.AsyncioGspreadClientManager(self.get_creds)
         self.agsp = None
         self.sheet = None
 
@@ -42,7 +42,7 @@ class dataIo:
     async def get_primary_sheetdata(self, target_URL: str, target_sheet: str) -> list: #초기 비교용 데이터 3개
         print(f'start - {target_sheet} : {target_URL}')
         await self.set_worksheet(target_URL, target_sheet)
-        primary_sheet_data = await self.sheet.get('A1:C3')
+        primary_sheet_data = await self.sheet.get('A1:C5')
         return primary_sheet_data
     
     async def data_save_process(self, data_set: list, duplicate_TF: bool, target_URL: str, target_sheet: str) -> None:
@@ -61,3 +61,10 @@ class dataIo:
 
     async def test_delete(self):
         await self.sheet.delete_rows(index=1)
+
+async def test():
+    d = dataIo()
+    await d.set_agsp()
+
+if __name__ == "__main__":
+    asyncio.run(test())
