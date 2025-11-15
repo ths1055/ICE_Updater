@@ -17,7 +17,9 @@ def msg_send_process(text_list) -> None:
     sMsg = msg.sendMSG()
     for text in text_list:
         param=sMsg.set_param(text=text)
+        param2=sMsg.set_param(text=text, id=os.environ['SUB_CHAT_ID'])
         sMsg.send_msg(param)
+        sMsg.send_msg(param2)
 
 async def get_primary_data(data, sheet_url: str, type: str):
     #await data.set_worksheet(sheet_url, type)
