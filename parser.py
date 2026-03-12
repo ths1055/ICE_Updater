@@ -19,6 +19,11 @@ class YUParser:
             print(f'type:{type}, url:{URL_target}')
             return PARSE_value
         
+        elif type == 'SwEdu':
+            PARSE_value = await self._PARSER_SwEdu(URL_target)
+            print(f'type:{type}, url:{URL_target}')
+            return PARSE_value
+        
         else:
             raise ValueError
     
@@ -89,11 +94,24 @@ class YUParser:
                 return DATA_result
             DATA_result.append(temp_list)
         return DATA_result
-
-async def test():
-    pas=YUParser()
-    res = await pas._PARSER_YuNEWS('https://www.yu.ac.kr/main/intro/yu-news.do')
-    print(res)
-
-if __name__ == "__main__":
-    asyncio.run(test())
+    
+    async def _PARSER_SwEdu(self, url) -> list:
+        DATA_result = []
+        html = await self.request(url)
+        DATA_raw = BeautifulSoup(html, 'html.parser')
+        await asyncio.sleep(1)
+        DATA_article = (DATA_raw.find_all('td',attrs={'class':'b-td-left'}))
+        for data in DATA_article:
+            temp_list=[]
+            tag_a = data.select_one('a')
+            #print(tag_a)
+            if tag_a:
+                url_parsed = tag_a['href']
+                title = tag_a.select_one('span').text.strip()
+                next_td = data.find_next_siblings('td')
+                temp_list.append(next_td[1].text.strip())#date
+                temp_list.append(title)
+                temp_list.append(url+url_parsed)
+                #print(temp_list)
+                DATA_result.append(temp_list)
+        return DATA_result
