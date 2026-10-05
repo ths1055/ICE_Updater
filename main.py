@@ -9,6 +9,7 @@ ICE_URL = os.environ['ICE_URL']
 COMPUTER_URL = os.environ['COMPUTER_URL']
 YU_NEWS = os.environ['YU_NEWS']
 SWEDU_URL = os.environ['SW_EDU']
+AIBOOT_URL = os.environ['AI_BOOT']
 
 ANNO_SHEET = os.environ['ANNO_SHEET']
 ARTICLE_SHEET = os.environ['ARTICLE_SHEET']
@@ -39,7 +40,7 @@ async def test_scheduler():
         await temp[1].set_agsp()
         object_list.append(temp)
     
-    #object_list[0] = ice_anno, [1]=ice_article, [2]=computer_anno, [3]=computer_article, [4]=swedu_anno, [5]=yu_news
+    #object_list[0] = ice_anno, [1]=ice_article, [2]=computer_anno, [3]=computer_article, [4]=swedu_anno, [5]=yu_news, [6]=aiBoot_anno
     result = await asyncio.gather(
         object_list[0][0].parser('anno', ICE_URL),
         object_list[1][0].parser('article', ICE_URL),
@@ -47,6 +48,7 @@ async def test_scheduler():
         object_list[3][0].parser('article', COMPUTER_URL),
         object_list[4][0].parser('SwEdu', SWEDU_URL),
         object_list[5][0].parser('yu_news', YU_NEWS), 
+        object_list[6][0].parser('SwEdu', AIBOOT_URL),
         return_exceptions=True
     )
     primary_result = await asyncio.gather(
@@ -55,7 +57,9 @@ async def test_scheduler():
         get_primary_data(object_list[2][1], ANNO_SHEET, 'computer'),
         get_primary_data(object_list[3][1], ARTICLE_SHEET, 'computer'),
         get_primary_data(object_list[4][1], ANNO_SHEET, 'sw'), 
-        get_primary_data(object_list[5][1], ARTICLE_SHEET, 'yu_news'),return_exceptions=True
+        get_primary_data(object_list[5][1], ARTICLE_SHEET, 'yu_news'),
+        get_primary_data(object_list[6][1], ANNO_SHEET, 'aiBoot_anno'),
+        return_exceptions=True
     )
 
     cut_data_set = await asyncio.gather(
@@ -64,7 +68,9 @@ async def test_scheduler():
         object_list[2][2].select_data(result[2], primary_result[2]),
         object_list[3][2].select_data(result[3], primary_result[3]),
         object_list[4][2].select_data(result[4], primary_result[4]),
-        object_list[5][2].select_data(result[5], primary_result[5]),return_exceptions=True
+        object_list[5][2].select_data(result[5], primary_result[5]),
+        object_list[6][2].select_data(result[6], primary_result[6]),
+        return_exceptions=True
     )
     
     msg_list = await asyncio.gather(
@@ -73,11 +79,13 @@ async def test_scheduler():
         object_list[2][3].set_text_process(cut_data_set[2][0], cut_data_set[2][1], 'COMPUTER_Announcement'),
         object_list[3][3].set_text_process(cut_data_set[3][0], cut_data_set[3][1], 'COMPUTER_Article'),
         object_list[4][3].set_text_process(cut_data_set[4][0], cut_data_set[4][1], 'SwEdu_Announcement'),
-        object_list[5][3].set_text_process(cut_data_set[5][0], cut_data_set[5][1], 'YU-NEWS'), return_exceptions=True
+        object_list[5][3].set_text_process(cut_data_set[5][0], cut_data_set[5][1], 'YU-NEWS'), 
+        object_list[6][3].set_text_process(cut_data_set[6][0], cut_data_set[6][1], 'aiBoot_Announcement'),
+        return_exceptions=True
 )
     
     total_msg_list = []
-    for i in range(6):
+    for i in range(7):
         total_msg_list += msg_list[i]
 
     msg_send_process(total_msg_list)
@@ -89,7 +97,9 @@ async def test_scheduler():
         object_list[2][1].data_save_process(cut_data_set[2][0], cut_data_set[2][1], ANNO_SHEET, 'computer'),
         object_list[3][1].data_save_process(cut_data_set[3][0], cut_data_set[3][1], ARTICLE_SHEET, 'computer'),
         object_list[4][1].data_save_process(cut_data_set[4][0], cut_data_set[4][1], ANNO_SHEET, 'sw'),
-        object_list[5][1].data_save_process(cut_data_set[5][0], cut_data_set[5][1], ARTICLE_SHEET, 'yu_news'), return_exceptions=True
+        object_list[5][1].data_save_process(cut_data_set[5][0], cut_data_set[5][1], ARTICLE_SHEET, 'yu_news'), 
+        object_list[6][1].data_save_process(cut_data_set[6][0], cut_data_set[6][1], ANNO_SHEET, 'aiBoot'), 
+        return_exceptions=True
     )
 
    
